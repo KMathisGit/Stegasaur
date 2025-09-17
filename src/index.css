@@ -1,12 +1,14 @@
+@import "tailwindcss";
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Pixelify Sans";
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  background-image: url("./assets/untitled2.png");
+  background-repeat: no-repeat;
+  background-size: cover;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -25,44 +27,69 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
 button {
-  border-radius: 8px;
+  @apply rounded-md px-4 py-2 font-semibold cursor-pointer transition-all;
+
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  background-color: #0000001c;
+  box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 0.3);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+button:hover {
+  background-color: #ffffff12;
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0px 1px rgba(0, 0, 0, 0.2);
+}
+
+select {
+  @apply text-black outline-none border-1 bg-white rounded p-1;
+}
+
+textarea {
+  @apply text-black bg-white outline-none border-1 rounded p-1;
+}
+
+.header-text-shadow {
+  text-shadow: 8px 8px rgba(0, 0, 0, 0.2);
+}
+
+.p-text-shadow {
+  text-shadow: 4px 4px rgba(0, 0, 0, 0.2);
+}
+
+.frosted-glass {
+  background-color: rgba(0, 0, 0, 0.3); /* translucent dark */
+  border-radius: 12px;
+  box-shadow: 8px 8px 16px 2px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px); /* for Safari */
+  padding: 1rem;
+  transition: all 0.1s linear;
+
+  &.hover:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+    box-shadow: 8px 8px 16px 2px rgba(0, 0, 0, 0.25);
   }
-  a:hover {
-    color: #747bff;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
-  button {
-    background-color: #f9f9f9;
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
