@@ -38,13 +38,16 @@ function LandingView({ uploadImageCallback }: LandingViewProps) {
       <div className="h-full flex flex-col items-center justify-between">
         <div>
           <h1 className="text-9xl text-center uppercase font-semibold tracking-wide mb-8 header-text-shadow">
-            {"Stegasaur".split("").map((c) => (
-              <span className="text-white transition-colors ease-linear hover:text-white/0">
+            {"Stegasaur".split("").map((c, i) => (
+              <span
+                key={c + i}
+                className="text-white transition-colors ease-linear hover:text-white/0"
+              >
                 {c}
               </span>
             ))}
           </h1>
-          <p className="text-2xl font-semibold p-text-shadow">
+          <p className="text-2xl font-semibold p-text-shadow text-center">
             Stegasaur is a web app that specializes in steganography, letting
             users hide, reveal, and modify information within images easily and
             securely. It combines powerful image manipulation tools with a

@@ -26,6 +26,8 @@ export function encodeStringInAlpha(
   str: string,
   encoding: "utf-8" | "ascii"
 ) {
+  // encrypting str (TODO: BETTER ENCRYPTION)
+  str = btoa(str);
   // adds null-terminator necessary to know when to stop decoding
   str = str + "\0";
   let bits: number[];
@@ -37,6 +39,7 @@ export function encodeStringInAlpha(
     console.error("Invalid encoding provided:", encoding);
     return;
   }
+  console.log("Bits to encode:", bits);
   for (let i = 0; i < bits.length; i++) {
     const alphaIndex = i * 4 + 3;
     if (alphaIndex >= pixels.length) break;
@@ -53,6 +56,7 @@ export function decodeStringFromAlpha(
   encoding: "utf-8" | "ascii"
 ): string | undefined {
   const bits: number[] = [];
+  let decryptedStr;
 
   // Extract bits from alpha LSB of all pixels
   const maxBits = Math.floor(pixels.length / 4) * 8;
@@ -62,30 +66,29 @@ export function decodeStringFromAlpha(
     bits.push(pixels[alphaIndex] & 1);
   }
 
-  if (encoding === "utf-8") {
-    // Group bits into bytes
-    const bytes: number[] = [];
-    for (let i = 0; i < bits.length; i += 8) {
-      const byteBits = bits.slice(i, i + 8);
-      if (byteBits.length < 8) break; // incomplete byte at end
-      const byte = byteBits.reduce((acc, bit) => (acc << 1) | bit, 0);
-      if (byte === 0) break; // null terminator signals end of string
-      bytes.push(byte);
-    }
-    // Decode UTF-8 bytes to string
-    const decoder = new TextDecoder("utf-8");
-    return decoder.decode(new Uint8Array(bytes));
-  } else if (encoding === "ascii") {
-    let message = "";
-    for (let i = 0; i < bits.length; i += 8) {
-      const byteBits = bits.slice(i, i + 8);
-      if (byteBits.length < 8) break; // incomplete byte at end
-      const byte = byteBits.reduce((acc, bit) => (acc << 1) | bit, 0);
-      if (byte === 0) break; // Null terminator signals end of message
-      message += String.fromCharCode(byte);
-    }
-    return message;
-  } else {
-    console.error("Invalid encoding:", encoding);
+  console.log("Bits from alpha:", bits);
+
+  // Group bits into bytes
+  const bytes: number[] = [];
+  for (let i = 0; i < bits.length; i += 8) {
+    const byteBits = bits.slice(i, i + 8);
+    if (byteBits.length < 8) break; // incomplete byte at end
+    const byte = byteBits.reduce((acc, bit) => (acc << 1) | bit, 0);
+    if (byte === 0) break; // null terminator signals end of string
+    bytes.push(byte);
   }
+
+  console.log("Bytes from grouped bits:", bytes);
+
+  if (encoding === "utf-8") {
+    const decoder = new TextDecoder("utf-8");
+    const decodedStr = decoder.decode(new Uint8Array(bytes));
+    decryptedStr = atob(decodedStr); // TODO: decryption here
+    return decryptedStr;
+  } else if (encoding === "ascii") {
+    const message = bytes.map((byte) => String.fromCharCode(byte)).join("");
+    decryptedStr = atob(message); // TODO: decryption here
+    return decryptedStr;
+  }
+  // Decode UTF-8 bytes to string
 }

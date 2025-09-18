@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { decodeStringFromAlpha, encodeStringInAlpha } from "./stringUtils";
 
+import {
+  decodePayloadFromAlpha,
+  decryptWithSubtleCrypto,
+  encodePayloadInAlpha,
+  encryptWithSubtleCrypto,
+} from "./cryptoUtils";
+
 const PAYLOAD_TYPES = {
   message: { label: "Message", value: "Message" },
   file: { label: "File", value: "File" },
 };
 
-const PAYLOAD_TYPE_OPTIONS = [PAYLOAD_TYPES.message, PAYLOAD_TYPES.file];
+// const PAYLOAD_TYPE_OPTIONS = [PAYLOAD_TYPES.message, PAYLOAD_TYPES.file];
 
 type WorkZoneProps = {
   uploadedFile: File;
@@ -18,8 +25,10 @@ function WorkZone({ uploadedFile }: WorkZoneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [payloadType, setPayloadType] = useState<string>("");
   const imageRef = useRef<HTMLImageElement>(null);
-  const [imgSrc, setImgSrc] = useState<string>("");
+  const [imgSrc, setImgSrc] = useState<string | undefined>();
   const [pixelData, setPixelData] = useState<ImageDataArray>();
+  const [password, setEncryptionKey] = useState<string>("");
+  const [payload, setPayLoad] = useState<string>("");
   const [imgDimensions, setImgDimensions] = useState<{
     width: number;
     height: number;
@@ -87,11 +96,15 @@ function WorkZone({ uploadedFile }: WorkZoneProps) {
     if (!ctx) return;
 
     const newPixels = new Uint8ClampedArray(pixelData);
+
+    // iterate over all rgba pixel values
     for (let i = 1; i <= newPixels.length; i++) {
+      // skiping over alpha values
       if (i % 4 === 0) {
         newPixels[i - 1] = 255;
         continue;
       }
+      // if rgb value is 0 sets it to a random number
       if (newPixels[i - 1] === 0) {
         newPixels[i - 1] = Math.floor(Math.random() * 255);
       }
@@ -106,7 +119,7 @@ function WorkZone({ uploadedFile }: WorkZoneProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "modified-image.png"; // file name and extension
+      a.download = `${file.name}-modified.png`; // file name and extension
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -114,18 +127,55 @@ function WorkZone({ uploadedFile }: WorkZoneProps) {
     }, "image/png");
   }
 
-  console.log("Pixels:", pixelData);
+  // if (pixelData) {
+  //   const encodedPixels = encodeStringInAlpha(
+  //     new Uint8ClampedArray(pixelData),
+  //     "hello world",
+  //     "ascii"
+  //   );
+  //   if (encodedPixels) {
+  //     // console.log("encoded pixels:", encodedPixels);
+  //     const decodedString = decodeStringFromAlpha(encodedPixels, "ascii");
+  //     // console.log("decoded string:", decodedString);
+  //   }
+  // }
 
-  if (pixelData) {
-    const encodedPixels = encodeStringInAlpha(
-      new Uint8ClampedArray(pixelData),
-      "hello world",
-      "ascii"
-    );
-    if (encodedPixels) {
+  async function injectPayload() {
+    if (pixelData) {
+      console.log("Payload:", payload);
+      console.log("Password:", password);
+
+      const encodedPixels = encodeStringInAlpha(
+        new Uint8ClampedArray(pixelData),
+        payload,
+        "ascii"
+      );
       console.log("encoded pixels:", encodedPixels);
-      const decodedString = decodeStringFromAlpha(encodedPixels, "ascii");
-      console.log("decoded string:", decodedString);
+      if (encodedPixels) {
+        const decodedString = decodeStringFromAlpha(encodedPixels, "ascii");
+        console.log("decoded string:", decodedString);
+      }
+
+      console.log("V2 START HERE");
+
+      // =================================================
+
+      const encryptedPayload = await encryptWithSubtleCrypto(payload, password);
+
+      console.log("Encrypted payload", encryptedPayload);
+      console.log("Original pixel data:", pixelData);
+
+      const injectedPixelData = encodePayloadInAlpha(
+        new Uint8ClampedArray(pixelData!),
+        encryptedPayload
+      );
+      console.log("Pixel data after injecting payload:", injectedPixelData);
+
+      const decryptedPayload = await decodePayloadFromAlpha(
+        injectedPixelData,
+        password
+      );
+      console.log("Decrypted payload from injected payload:", decryptedPayload);
     }
   }
 
@@ -175,7 +225,9 @@ function WorkZone({ uploadedFile }: WorkZoneProps) {
           >
             <option value="">Select</option>
             {Object.values(PAYLOAD_TYPES).map((v) => (
-              <option value={v.value}>{v.label}</option>
+              <option key={v.value} value={v.value}>
+                {v.label}
+              </option>
             ))}
           </select>
         </div>
@@ -189,11 +241,29 @@ function WorkZone({ uploadedFile }: WorkZoneProps) {
               name="payloadMessage"
               rows={4}
               className="w-full"
+              value={payload}
+              onChange={(e) => setPayLoad(e.target.value)}
             ></textarea>
           </div>
         )}
 
-        <button>Encrypt</button>
+        <div>
+          <label className="text-xl block mb-1" htmlFor="encryptionKey">
+            Secret Key (Optional)
+          </label>
+          <input
+            type="text"
+            id="encryptionKey"
+            name="encryptionKey"
+            className="w-full"
+            value={password}
+            onChange={(e) => setEncryptionKey(e.target.value)}
+            minLength={16}
+            maxLength={32}
+          ></input>
+        </div>
+
+        <button onClick={injectPayload}>Inject Payload</button>
         <button onClick={testManipulation}>Test Manipulation</button>
       </div>
     </div>
