@@ -40,3 +40,12 @@
 .read-the-docs {
   color: #888;
 }
+
+#hero-section {
+  color: white;
+}
+
+.hero-text {
+  font-size: 4rem;
+  color: black;
+}

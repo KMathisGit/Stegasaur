@@ -3,7 +3,6 @@ import { decodeStringFromAlpha, encodeStringInAlpha } from "./stringUtils";
 
 import {
   decodePayloadFromAlpha,
-  decryptWithSubtleCrypto,
   encodePayloadInAlpha,
   encryptWithSubtleCrypto,
 } from "./cryptoUtils";
