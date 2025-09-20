@@ -1,24 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { decodeStringFromAlpha, encodeStringInAlpha } from "./stringUtils";
 
 import {
   decodePayloadFromAlpha,
   encodePayloadInAlpha,
   encryptWithSubtleCrypto,
 } from "./cryptoUtils";
+import FadeComponent from "./Fade";
+import AppButton from "./components/Button";
+import Tooltip from "./components/Tooltip";
 
 const PAYLOAD_TYPES = {
   message: { label: "Message", value: "Message" },
   file: { label: "File", value: "File" },
 };
 
-// const PAYLOAD_TYPE_OPTIONS = [PAYLOAD_TYPES.message, PAYLOAD_TYPES.file];
-
 type WorkZoneProps = {
-  uploadedFile: File;
+  uploadedImage: File;
 };
 
-function WorkZone({ uploadedFile }: WorkZoneProps) {
+function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
   const [file, setFile] = useState<File>(uploadedFile);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,7 +26,7 @@ function WorkZone({ uploadedFile }: WorkZoneProps) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [imgSrc, setImgSrc] = useState<string | undefined>();
   const [pixelData, setPixelData] = useState<ImageDataArray>();
-  const [password, setEncryptionKey] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [payload, setPayLoad] = useState<string>("");
   const [imgDimensions, setImgDimensions] = useState<{
     width: number;
@@ -87,78 +87,8 @@ function WorkZone({ uploadedFile }: WorkZoneProps) {
     }
   };
 
-  function testManipulation() {
-    if (!pixelData) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const newPixels = new Uint8ClampedArray(pixelData);
-
-    // iterate over all rgba pixel values
-    for (let i = 1; i <= newPixels.length; i++) {
-      // skiping over alpha values
-      if (i % 4 === 0) {
-        newPixels[i - 1] = 255;
-        continue;
-      }
-      // if rgb value is 0 sets it to a random number
-      if (newPixels[i - 1] === 0) {
-        newPixels[i - 1] = Math.floor(Math.random() * 255);
-      }
-    }
-
-    const newImageData = new ImageData(newPixels, canvas.width, canvas.height);
-    ctx.putImageData(newImageData, 0, 0);
-
-    // Export as Blob (recommended for larger images)
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${file.name}-modified.png`; // file name and extension
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }, "image/png");
-  }
-
-  // if (pixelData) {
-  //   const encodedPixels = encodeStringInAlpha(
-  //     new Uint8ClampedArray(pixelData),
-  //     "hello world",
-  //     "ascii"
-  //   );
-  //   if (encodedPixels) {
-  //     // console.log("encoded pixels:", encodedPixels);
-  //     const decodedString = decodeStringFromAlpha(encodedPixels, "ascii");
-  //     // console.log("decoded string:", decodedString);
-  //   }
-  // }
-
   async function injectPayload() {
     if (pixelData) {
-      console.log("Payload:", payload);
-      console.log("Password:", password);
-
-      const encodedPixels = encodeStringInAlpha(
-        new Uint8ClampedArray(pixelData),
-        payload,
-        "ascii"
-      );
-      console.log("encoded pixels:", encodedPixels);
-      if (encodedPixels) {
-        const decodedString = decodeStringFromAlpha(encodedPixels, "ascii");
-        console.log("decoded string:", decodedString);
-      }
-
-      console.log("V2 START HERE");
-
-      // =================================================
-
       const encryptedPayload = await encryptWithSubtleCrypto(payload, password);
 
       console.log("Encrypted payload", encryptedPayload);
@@ -179,93 +109,121 @@ function WorkZone({ uploadedFile }: WorkZoneProps) {
   }
 
   return (
-    <div className="">
-      <h1 className="text-5xl mb-4">Uploaded Image</h1>
-      <div className="flex gap-8 py-6 mb-8">
-        <img
-          className="w-36 h-36"
-          src={imgSrc}
-          ref={imageRef}
-          onLoad={handleImageLoad}
-          width={128}
-          height={128}
-        />
-        <canvas ref={canvasRef} className="hidden"></canvas>
-        <div className="flex flex-col gap-0.5 text-lg">
-          <p>File Name: {file.name}</p>
-          <p>File Size: {sizeStr}</p>
-          <p>
-            Dimensions: {imgDimensions.width} x {imgDimensions.height}
-          </p>
-          <button className="mt-1" onClick={handleClick}>
-            Change Image
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={handleFileChange}
-          />
-        </div>
-      </div>
-      <h1 className="text-5xl mb-4">Payload</h1>
-      <div className="flex flex-col max-w-xl gap-8 py-6 mb-8">
-        <div>
-          <label className="text-xl block mb-1" htmlFor="payloadType">
-            Payload Type
-          </label>
-          <select
-            className="w-full"
-            id="payloadType"
-            name="payloadType"
-            value={payloadType}
-            onChange={(e) => setPayloadType(e.target.value)}
-          >
-            <option value="">Select</option>
-            {Object.values(PAYLOAD_TYPES).map((v) => (
-              <option key={v.value} value={v.value}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        {payloadType === PAYLOAD_TYPES.message.value && (
-          <div>
-            <label className="text-xl block mb-1" htmlFor="payloadMessage">
-              Message
-            </label>
-            <textarea
-              id="payloadMessage"
-              name="payloadMessage"
-              rows={4}
-              className="w-full"
-              value={payload}
-              onChange={(e) => setPayLoad(e.target.value)}
-            ></textarea>
+    <FadeComponent show={true}>
+      <div className="max-w-7xl">
+        <h2 className="header-text-shadow">Uploaded Image</h2>
+        <div className="flex gap-8 py-4">
+          <div className="w-36 h-36 overflow-hidden">
+            <img
+              className="w-full h-full object-contain"
+              src={imgSrc}
+              ref={imageRef}
+              onLoad={handleImageLoad}
+            />
           </div>
-        )}
+          <canvas ref={canvasRef} className="hidden"></canvas>
+          <div className="flex flex-col gap-2">
+            {/* <p className="text-ellipsis max-w-">File Name: {file.name}</p>
+            <p>File Size: {sizeStr}</p>
+            <p>
+              Dimensions: {imgDimensions.width} x {imgDimensions.height}
+            </p> */}
+            <div>
+              <p className="text-sm">File Name</p>
+              <p className="text-lg leading-5 truncate max-w-[280px]">
+                {file.name}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm">File Size</p>
+              <p className="text-lg  leading-5">{sizeStr}</p>
+            </div>
+            <div>
+              <p className="text-sm">Dimensions</p>
+              <p className="text-lg  leading-5">
+                {imgDimensions.width} x {imgDimensions.height}
+              </p>
+            </div>
 
-        <div>
-          <label className="text-xl block mb-1" htmlFor="encryptionKey">
-            Secret Key (Optional)
-          </label>
-          <input
-            type="text"
-            id="encryptionKey"
-            name="encryptionKey"
-            className="w-full"
-            value={password}
-            onChange={(e) => setEncryptionKey(e.target.value)}
-            minLength={16}
-            maxLength={32}
-          ></input>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handleFileChange}
+            />
+          </div>
         </div>
+        <AppButton className="w-full mb-6" onClick={handleClick}>
+          Change Image
+        </AppButton>
+        <h2 className="header-text-shadow">Configuration</h2>
+        <div className="flex flex-col max-w-xl gap-4 py-4 mb-8">
+          <div>
+            <Tooltip text="Used to securely lock and unlock hidden messages within files. Only those who know the key can access the concealed information.">
+              <label
+                className="text-xl mb-1 p-text-shadow"
+                htmlFor="encryptionKey"
+              >
+                Secret Key
+              </label>
+            </Tooltip>
+            <input
+              type="text"
+              id="encryptionKey"
+              name="encryptionKey"
+              className="w-full"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={16}
+              maxLength={32}
+            ></input>
+          </div>
+          <div>
+            <label
+              className="text-xl block mb-1 p-text-shadow"
+              htmlFor="payloadType"
+            >
+              Payload Type
+            </label>
+            <select
+              className="w-full"
+              id="payloadType"
+              name="payloadType"
+              value={payloadType}
+              onChange={(e) => setPayloadType(e.target.value)}
+            >
+              <option value="">Select</option>
+              {Object.values(PAYLOAD_TYPES).map((v) => (
+                <option key={v.value} value={v.value}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {payloadType === PAYLOAD_TYPES.message.value && (
+            <div>
+              <label
+                className="text-xl block mb-1 p-text-shadow"
+                htmlFor="payloadMessage"
+              >
+                Message
+              </label>
+              <textarea
+                id="payloadMessage"
+                name="payloadMessage"
+                rows={4}
+                className="w-full"
+                value={payload}
+                onChange={(e) => setPayLoad(e.target.value)}
+              ></textarea>
+            </div>
+          )}
 
-        <button onClick={injectPayload}>Inject Payload</button>
-        <button onClick={testManipulation}>Test Manipulation</button>
+          <AppButton onClick={injectPayload}>Inject Payload</AppButton>
+        </div>
       </div>
-    </div>
+    </FadeComponent>
   );
 }
 

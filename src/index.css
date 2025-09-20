@@ -1,49 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  font-family: "Pixelify Sans";
+  /* font-family: "Pixelify Sans"; */
+  font-family: monospace;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  background-image: url("./assets/untitled2.png");
+  background-image: url("./assets/bg.png");
   background-repeat: no-repeat;
   background-size: cover;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+  font-size: 16px;
 }
 
 body {
-  margin: 0;
-  display: flex;
+  margin: 0 auto;
   min-width: 320px;
+  width: 100vw;
   min-height: 100vh;
 }
 
-button {
-  @apply rounded-md px-4 py-2 font-semibold cursor-pointer transition-all;
-
-  border: 1px solid transparent;
-  font-family: inherit;
-  background-color: #0000001c;
-  box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 0.3);
+h1 {
+  @apply text-5xl sm:text-7xl lg:text-8xl font-pixilify;
 }
 
-button:hover {
-  background-color: #ffffff12;
-  transform: translate(3px, 3px);
-  box-shadow: 2px 2px 0px 1px rgba(0, 0, 0, 0.2);
+h2 {
+  @apply text-3xl md:text-4xl font-pixilify;
 }
 
 select,
@@ -53,26 +39,11 @@ input {
 }
 
 .header-text-shadow {
-  text-shadow: 8px 8px rgba(0, 0, 0, 0.2);
+  text-shadow: 6px 6px rgba(0, 0, 0, 0.2);
 }
 
 .p-text-shadow {
   text-shadow: 4px 4px rgba(0, 0, 0, 0.2);
-}
-
-.frosted-glass {
-  background-color: rgba(0, 0, 0, 0.3); /* translucent dark */
-  border-radius: 12px;
-  box-shadow: 8px 8px 16px 2px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px); /* for Safari */
-  padding: 1rem;
-  transition: all 0.1s linear;
-
-  &.hover:hover {
-    background-color: rgba(0, 0, 0, 0.2);
-    box-shadow: 8px 8px 16px 2px rgba(0, 0, 0, 0.25);
-  }
 }
 
 @keyframes fadeIn {
@@ -90,4 +61,31 @@ input {
   to {
     opacity: 0;
   }
+}
+
+@utility shadow-6-6-0-0 {
+  box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 0.3);
+}
+
+@utility shadow-2-2-0-1 {
+  box-shadow: 2px 2px 0px 1px rgba(0, 0, 0, 0.2);
+}
+
+@utility translate-0.75 {
+  transform: translate(3px, 3px);
+}
+
+.content-area {
+  height: calc(100vh - 32px);
+  min-width: 320px;
+  width: 100%;
+  overflow: auto;
+}
+
+@utility font-pixilify {
+  font-family: "Pixelify Sans";
+}
+
+@utility landing-view-container {
+  height: calc(100vh - 160px);
 }

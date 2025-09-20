@@ -1,20 +1,31 @@
 import { useState } from "react";
-import "./App.css";
-import LandingView from "./Landing";
+import StegasaurHeader from "./components/StegasaurHeader";
+import Landing from "./Landing";
 import WorkZone from "./WorkZone";
+import AboutStegasaur from "./AboutStegasaur";
 
 function App() {
-  const [uploadedFile, setUploadedFile] = useState<File | undefined>();
+  const [imageUploaded, setImageUploaded] = useState<File>();
 
-  function uploadImageCallback(result: File) {
-    setUploadedFile(result);
-  }
+  return (
+    <>
+      <div className="content-area overflow-auto p-4">
+        <StegasaurHeader />
 
-  if (!uploadedFile) {
-    return <LandingView uploadImageCallback={uploadImageCallback} />;
-  }
-
-  return <WorkZone uploadedFile={uploadedFile} />;
+        {!imageUploaded ? (
+          <Landing
+            uploadedImageCallback={(image: File) => setImageUploaded(image)}
+          />
+        ) : (
+          <WorkZone uploadedImage={imageUploaded} />
+        )}
+        <AboutStegasaur />
+      </div>
+      <footer className="w-full min-h-8 h-8 bg-black flex items-center justify-center font-mono">
+        © {new Date().getFullYear()} Stegasaur. All rights reserved.
+      </footer>
+    </>
+  );
 }
 
 export default App;
