@@ -4,8 +4,9 @@ import {
   decodePayloadFromAlpha,
   encodePayloadInAlpha,
   encryptWithSubtleCrypto,
-} from "./cryptoUtils";
-import FadeComponent from "./Fade";
+  ENTIRE_HEADER_BIT_LENGTH,
+} from "./utils/cryptoUtils";
+import FadeComponent from "./components/Fade";
 import AppButton from "./components/Button";
 import Tooltip from "./components/Tooltip";
 
@@ -18,6 +19,8 @@ type WorkZoneProps = {
   uploadedImage: File;
 };
 
+const textEncoder = new TextEncoder();
+
 function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
   const [file, setFile] = useState<File>(uploadedFile);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +31,8 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
   const [pixelData, setPixelData] = useState<ImageDataArray>();
   const [password, setPassword] = useState<string>("");
   const [payload, setPayLoad] = useState<string>("");
+  const [capacityRemaining, setCapacityRemaining] = useState<number>();
+  const [operationMode, setOperationMode] = useState<string>("");
   const [imgDimensions, setImgDimensions] = useState<{
     width: number;
     height: number;
@@ -48,6 +53,14 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     };
     reader.readAsDataURL(file);
   }, [file]);
+
+  useEffect(() => {
+    setCapacityRemaining(
+      file.size -
+        ENTIRE_HEADER_BIT_LENGTH / 8 -
+        textEncoder.encode(payload).length
+    );
+  }, [payload, file]);
 
   // Sets state for dimensions after the img has finished loading
   function handleImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -87,6 +100,10 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     }
   };
 
+  const handlePayloadChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setPayLoad(e.target.value);
+  };
+
   async function injectPayload() {
     if (pixelData) {
       const encryptedPayload = await encryptWithSubtleCrypto(payload, password);
@@ -123,11 +140,6 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
           </div>
           <canvas ref={canvasRef} className="hidden"></canvas>
           <div className="flex flex-col gap-2">
-            {/* <p className="text-ellipsis max-w-">File Name: {file.name}</p>
-            <p>File Size: {sizeStr}</p>
-            <p>
-              Dimensions: {imgDimensions.width} x {imgDimensions.height}
-            </p> */}
             <div>
               <p className="text-sm">File Name</p>
               <p className="text-lg leading-5 truncate max-w-[280px]">
@@ -182,43 +194,68 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
           <div>
             <label
               className="text-xl block mb-1 p-text-shadow"
-              htmlFor="payloadType"
+              htmlFor="operationMode"
             >
-              Payload Type
+              Operation Mode
             </label>
             <select
               className="w-full"
-              id="payloadType"
-              name="payloadType"
-              value={payloadType}
-              onChange={(e) => setPayloadType(e.target.value)}
+              id="operationMode"
+              name="operationMode"
+              value={operationMode}
+              onChange={(e) => setOperationMode(e.target.value)}
             >
               <option value="">Select</option>
-              {Object.values(PAYLOAD_TYPES).map((v) => (
-                <option key={v.value} value={v.value}>
-                  {v.label}
-                </option>
-              ))}
+              <option value="encrypt">Encrypt</option>
+              <option value="decrypt">Decrypt</option>
             </select>
           </div>
-          {payloadType === PAYLOAD_TYPES.message.value && (
+          {operationMode === "encrypt" && (
             <div>
               <label
                 className="text-xl block mb-1 p-text-shadow"
-                htmlFor="payloadMessage"
+                htmlFor="payloadType"
               >
-                Message
+                Payload Type
               </label>
-              <textarea
-                id="payloadMessage"
-                name="payloadMessage"
-                rows={4}
+              <select
                 className="w-full"
-                value={payload}
-                onChange={(e) => setPayLoad(e.target.value)}
-              ></textarea>
+                id="payloadType"
+                name="payloadType"
+                value={payloadType}
+                onChange={(e) => setPayloadType(e.target.value)}
+              >
+                <option value="">Select</option>
+                {Object.values(PAYLOAD_TYPES).map((v) => (
+                  <option key={v.value} value={v.value}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
+          {operationMode === "encrypt" &&
+            payloadType === PAYLOAD_TYPES.message.value && (
+              <div>
+                <label
+                  className="text-xl block mb-1 p-text-shadow"
+                  htmlFor="payloadMessage"
+                >
+                  Message
+                </label>
+                <textarea
+                  id="payloadMessage"
+                  name="payloadMessage"
+                  rows={4}
+                  className="w-full"
+                  value={payload}
+                  onChange={handlePayloadChange}
+                ></textarea>
+                <p className="text-right">
+                  Remaining Capacity: {capacityRemaining} B
+                </p>
+              </div>
+            )}
 
           <AppButton onClick={injectPayload}>Inject Payload</AppButton>
         </div>

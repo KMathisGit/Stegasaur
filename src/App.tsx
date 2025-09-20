@@ -9,7 +9,7 @@ function App() {
 
   return (
     <>
-      <div className="content-area overflow-auto p-4">
+      <div className="content-area px-4 overflow-auto">
         <StegasaurHeader />
 
         {!imageUploaded ? (
@@ -21,8 +21,8 @@ function App() {
         )}
         <AboutStegasaur />
       </div>
-      <footer className="w-full min-h-8 h-8 bg-black flex items-center justify-center font-mono">
-        © {new Date().getFullYear()} Stegasaur. All rights reserved.
+      <footer className="w-full min-h-8 h-8 bg-black flex items-center justify-center font-mono text-sm">
+        © {new Date().getFullYear()} Stegasaur. All rights reserved
       </footer>
     </>
   );

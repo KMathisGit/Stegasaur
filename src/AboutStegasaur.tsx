@@ -42,15 +42,7 @@ function AboutStegasaur() {
           </p>
           <button
             onClick={toggleModal}
-            style={{
-              position: "absolute",
-              top: "10px",
-              right: "10px",
-              background: "none",
-              border: "none",
-              fontSize: "20px",
-              cursor: "pointer",
-            }}
+            className="absolute top-4 right-4 text-2xl cursor-pointer"
             aria-label="Close modal"
           >
             &times;

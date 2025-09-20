@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@theme {
+  --breakpoint-xs: 30rem;
+}
+
+@font-face {
+  font-family: "Pixelify Sans";
+  src: url("./assets/fonts/PixelifySans-VariableFont_wght.ttf")
+    format("truetype");
+  font-weight: 100 900; /* Range of weights the font supports */
+}
+
 :root {
   /* font-family: "Pixelify Sans"; */
   font-family: monospace;
@@ -21,11 +32,11 @@ body {
   margin: 0 auto;
   min-width: 320px;
   width: 100vw;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 h1 {
-  @apply text-5xl sm:text-7xl lg:text-8xl font-pixilify;
+  @apply text-5xl xs:text-6xl sm:text-8xl md:text-8xl font-pixilify;
 }
 
 h2 {
@@ -76,7 +87,7 @@ input {
 }
 
 .content-area {
-  height: calc(100vh - 32px);
+  height: calc(100dvh - 32px);
   min-width: 320px;
   width: 100%;
   overflow: auto;
@@ -87,5 +98,5 @@ input {
 }
 
 @utility landing-view-container {
-  height: calc(100vh - 160px);
+  height: calc(100dvh - 168px);
 }

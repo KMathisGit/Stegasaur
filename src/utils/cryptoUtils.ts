@@ -1,16 +1,28 @@
 const LEN_HEADER_BIT_LENGTH = 4 * 8;
 const IV_HEADER_BITS = 16 * 8;
 const SALT_HEADER_BIT_LENGTH = 16 * 8;
-const ENTIRE_HEADER_BIT_LENGTH =
+export const ENTIRE_HEADER_BIT_LENGTH =
   LEN_HEADER_BIT_LENGTH + IV_HEADER_BITS + SALT_HEADER_BIT_LENGTH;
 
-export async function encryptWithSubtleCrypto(text: string, password: string) {
+export async function encryptWithSubtleCrypto(
+  payload: string,
+  password: string
+) {
   const enc = new TextEncoder();
   const iv = generateRandom16ByteHeader();
   const keySalt = generateRandom16ByteHeader();
+  const byteCapacityRequired =
+    Math.floor(getUtf8ByteLength(payload) / 16) * 16 + 16;
 
   console.log("IV:", iv);
-  console.log("key salt:", keySalt);
+  console.log("Key salt:", keySalt);
+  console.log("Payload:", payload);
+
+  console.log("Byte capacity required for payload:", byteCapacityRequired);
+
+  function getUtf8ByteLength(str: string) {
+    return new TextEncoder().encode(str).length;
+  }
 
   const key = await generateKey(password, keySalt);
 
@@ -18,10 +30,10 @@ export async function encryptWithSubtleCrypto(text: string, password: string) {
   const encrypted = await window.crypto.subtle.encrypt(
     { name: "AES-CBC", iv: iv },
     key,
-    enc.encode(text)
+    enc.encode(payload)
   );
 
-  console.log("encrypted:", encrypted, password, iv);
+  console.log("Encrypted payload:", encrypted);
 
   // generate length header based on encrypted payload size
   const lengthHeaderBytes = generateLengthHeader(encrypted.byteLength);
@@ -50,9 +62,8 @@ export async function decryptWithSubtleCrypto(
   iv: Uint8Array<ArrayBuffer>,
   salt: Uint8Array<ArrayBuffer>
 ) {
-  console.log("DECRYPTING WITH IV:", iv);
   try {
-    console.log("decrypting:", encryptedArr, password, iv);
+    console.log("Decrypting:", encryptedArr, password, iv);
     const key = await generateKey(password, salt);
     const decrypted = await window.crypto.subtle.decrypt(
       { name: "AES-CBC", iv: iv },
@@ -97,12 +108,13 @@ export function encodePayloadInAlpha(
   pixels: Uint8ClampedArray,
   payload: Uint8Array<ArrayBuffer>
 ) {
-  console.log("Payload to encode:", payload);
+  // console.log("Payload to encode:", payload);
 
   const bits = uint8ArrayToBits(payload);
 
-  console.log("Payload to encode converted to bits:", bits);
+  // console.log("Payload to encode converted to bits:", bits);
 
+  // encoding payload into LSB of each alpha byte
   for (let i = 0; i < bits.length; i++) {
     const alphaIndex = i * 4 + 3;
     if (alphaIndex >= pixels.length) break;
@@ -111,6 +123,20 @@ export function encodePayloadInAlpha(
     // perform bit AND operation clearing only LSB (least significant bit) and then perform OR operation setting LSB to whatever bits[i] is
     pixels[alphaIndex] = (pixels[alphaIndex] & 0xfe) | bits[i];
   }
+
+  // generate random bytes to store in LSB of remaining alpha bytes of image
+  const fillerBytes = getLargeRandomValues(pixels.length - bits.length / 8);
+
+  const fillerBits = uint8ArrayToBits(fillerBytes);
+
+  // randomly change value of 0 or 1 LSB of all remaining alpha bytes
+  for (let i = bits.length; i < fillerBits.length; i++) {
+    const alphaIndex = i * 4 + 3;
+    if (alphaIndex >= pixels.length) break;
+    pixels[alphaIndex] =
+      (pixels[alphaIndex] & 0xfe) | fillerBits[i - bits.length];
+  }
+
   return pixels;
 }
 
@@ -127,7 +153,7 @@ export async function decodePayloadFromAlpha(
     if (alphaIndex >= pixels.length) break;
     imageAlphaBits.push(pixels[alphaIndex] & 1);
   }
-  console.log("Bits from alpha", imageAlphaBits);
+  // console.log("Bits from alpha", imageAlphaBits);
   const headerBits = imageAlphaBits.slice(0, ENTIRE_HEADER_BIT_LENGTH);
   const lengthHeaderBits = headerBits.slice(0, 32);
   const ivHeaderBits = headerBits.slice(32, 160);
@@ -138,12 +164,10 @@ export async function decodePayloadFromAlpha(
   const iv = convertBitsToByteArr(ivHeaderBits);
   const salt = convertBitsToByteArr(saltHeaderBits);
 
-  // const payloadLength = convertBitsToDecimal(headerBits.slice(0,LEN_HEADER_BIT_LENGTH));
-  // const payloadLength = extractLengthHeader(imageAlphaBits);
-  // const ivHeader = extractIvHeaderAsBytes(imageAlphaBits);
-  console.log("Extracted length header from bits:", payloadLength);
-  console.log("IV extracted from header:", iv);
-  console.log("salt extracted from header:", salt);
+  // console.log("Extracted length header from bits:", payloadLength);
+  // console.log("IV extracted from header:", iv);
+  // console.log("salt extracted from header:", salt);
+
   // Group bits into bytes (skipping length header which is first 36 bytes or 288 bits)
   const bytes: number[] = [];
   for (
@@ -157,7 +181,7 @@ export async function decodePayloadFromAlpha(
     bytes.push(byte);
   }
 
-  console.log("Grouped bits into bytes for decoding:", bytes);
+  // console.log("Grouped bits into bytes for decoding:", bytes);
 
   return await decryptWithSubtleCrypto(
     new Uint8Array(bytes).buffer,
@@ -221,4 +245,50 @@ function convertBitsToByteArr(bits: number[]) {
     byteArr.push(curByteDecimalVal);
   }
   return new Uint8Array(byteArr);
+}
+
+/**
+ * @summary window.crypto.getRandomValues only allows generating 65,536 bytes at a time. This function serves to chunk the requested amount and re-stich the resulting bytes together.
+ * @param totalBytes
+ * @returns
+ */
+function getLargeRandomValues(totalBytes: number) {
+  const maxBytes = 65536;
+  const result = new Uint8Array(totalBytes);
+  let offset = 0;
+
+  while (totalBytes > 0) {
+    const chunkSize = Math.min(totalBytes, maxBytes);
+    const chunk = new Uint8Array(chunkSize);
+    window.crypto.getRandomValues(chunk);
+    result.set(chunk, offset);
+    offset += chunkSize;
+    totalBytes -= chunkSize;
+  }
+
+  return result;
+}
+
+/**
+ *
+ * @param secretKey
+ * @param maxLength image alpha bit length - (headerLength + payloadLength)
+ * @returns
+ */
+async function deriveRandomStartIndex(secretKey: string, maxLength: number) {
+  // Encode the secret key as Uint8Array
+  const encoder = new TextEncoder();
+  const data = encoder.encode(secretKey);
+
+  // Use subtle crypto to hash the secret key with SHA-256
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+  // Convert the first 4 bytes of the hash to an unsigned 32-bit integer
+  const view = new DataView(hashBuffer);
+  const hashInt = view.getUint32(0, false); // big-endian
+
+  // Reduce modulo maxLength to get a valid index within bounds
+  const startIndex = hashInt % maxLength;
+
+  return startIndex;
 }
