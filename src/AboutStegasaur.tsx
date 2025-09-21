@@ -10,7 +10,7 @@ function AboutStegasaur() {
       {/* About Button */}
       <button
         onClick={toggleModal}
-        className="h-13 w-13 lg:h-15 lg:w-15 fixed top-4 right-2 md:right-4 bg-white/5 text-2xl text-white font-semibold rounded-full shadow-md shadow-black/30 pointer z-[1000] cursor-pointer hover:scale-115 transition-transform"
+        className="h-13 w-13 lg:h-15 lg:w-15 fixed top-4 right-2 md:right-8 bg-[#c832e5] text-3xl text-white font-semibold rounded-full shadow-md shadow-black/30 pointer z-[1000] cursor-pointer hover:scale-115 transition-transform"
       >
         ?
       </button>
