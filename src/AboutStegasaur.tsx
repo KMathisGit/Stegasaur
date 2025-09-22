@@ -25,7 +25,7 @@ function AboutStegasaur() {
         onClick={toggleModal} // clicking outside modal closes
       >
         <div
-          className="bg-white text-black p-4 rounded-lg max-w-xl width-4/5 shadow relative mx-2"
+          className="bg-white text-black p-4 rounded-lg max-w-3xl max-h-[80dvh] width-4/5 overflow-auto shadow relative mx-2"
           onClick={(e) => e.stopPropagation()} // prevent close on modal click
         >
           <h2 className="mb-4">About Stegasaur</h2>

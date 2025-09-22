@@ -12,7 +12,7 @@ type Password = string;
 type Payload = string;
 
 /**
- * Uses Browser SubtleCrypto API in order to encrypt provided payload
+ * Uses Browser SubtleCrypto API in order to encrypt provided UTF-8 payload
  * @returns UInt8ClampedArray of the encrypted payload
  */
 async function encryptWithSubtleCrypto(

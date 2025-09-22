@@ -46,3 +46,7 @@ export function downloadImageUPNG(
   a.click();
   URL.revokeObjectURL(url);
 }
+
+export async function extractImageDataUPNG(file: File | Blob) {
+  return UPNG.toRGBA8(UPNG.decode(await file.arrayBuffer()))[0];
+}

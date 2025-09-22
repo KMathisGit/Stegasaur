@@ -7,12 +7,12 @@ import {
   decodeDataFromImage,
   encodePayloadInAlpha,
   ENTIRE_HEADER_BIT_LENGTH,
-} from "./utils/imageUtils";
+} from "./utils/encodingUtils";
 import {
   decryptWithSubtleCrypto,
   generateEncryptedImageData,
 } from "./utils/cryptoUtils";
-import { downloadImageUPNG } from "./utils/fileUtils";
+import { downloadImageUPNG, extractImageDataUPNG } from "./utils/fileUtils";
 
 const PAYLOAD_TYPES = {
   message: { label: "Message", value: "Message" },
@@ -52,12 +52,25 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
 
   useEffect(() => {
     const reader = new FileReader();
-    reader.onload = function (e) {
-      if (e.target?.result) {
-        setImgSrc(e.target.result.toString());
-      }
-    };
-    reader.readAsDataURL(file);
+
+    function updateImgSrc() {
+      reader.onload = function (e) {
+        if (e.target?.result) {
+          setImgSrc(e.target.result.toString());
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function extractData() {
+      const resp = await extractImageDataUPNG(file);
+      setPixelData(new Uint8ClampedArray(resp));
+    }
+    updateImgSrc();
+    extractData();
+    setDecodedPayload("");
+    setOperationMode("");
+    setPayLoad("");
   }, [file]);
 
   useEffect(() => {
@@ -82,10 +95,20 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     canvas.height = img.naturalHeight;
     ctx?.drawImage(img, 0, 0);
 
+    // Canvas -> Blob -> UPNG.decode -> UPNG.toRGBA8
+    // Not as performant as canvas.getImageData - but maybe useful for future
+    // canvas.toBlob(async (blob) => {
+    //   if (blob) {
+    //     const pixelData = await extractImageDataUPNG(blob);
+    //     console.timeEnd("toBlob");
+    //     console.log("pixel data from canvas toBlob + UPNG:", pixelData);
+    //     setPixelData(new Uint8ClampedArray(pixelData));
+    //   }
+    // });
+
     // Extract image pixel data
     const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
-    const pixels = imageData?.data; // Uint8ClampedArray with RGBA values
-    setPixelData(pixels);
+    if (imageData) setPixelData(imageData.data);
   }
 
   const handleClick = () => {
@@ -147,7 +170,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     const formData = new FormData(event.currentTarget);
     console.log(Object.fromEntries(formData.entries()));
 
-    if (operationMode === "decrypt") {
+    if (operationMode === "retrieve") {
       const { bytes, iv, salt } = await decodeDataFromImage(
         new Uint8ClampedArray(pixelData!)
       );
@@ -241,7 +264,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
               className="text-xl block mb-1 p-text-shadow"
               htmlFor="operationMode"
             >
-              Operation Mode
+              Operation
             </label>
             <select
               className="w-full"
@@ -252,11 +275,11 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
               required
             >
               <option value="">Select</option>
-              <option value="encrypt">Encrypt</option>
-              <option value="decrypt">Decrypt</option>
+              <option value="store">Store Payload</option>
+              <option value="retrieve">Retrieve Payload</option>
             </select>
           </div>
-          {operationMode === "encrypt" && (
+          {operationMode === "store" && (
             <div>
               <label
                 className="text-xl block mb-1 p-text-shadow"
@@ -281,7 +304,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
               </select>
             </div>
           )}
-          {operationMode === "encrypt" &&
+          {operationMode === "store" &&
             payloadType === PAYLOAD_TYPES.message.value && (
               <div>
                 <label
@@ -305,7 +328,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
                 </p>
               </div>
             )}
-          {operationMode === "encrypt" &&
+          {operationMode === "store" &&
             payloadType === PAYLOAD_TYPES.file.value && (
               <div>
                 <label
@@ -321,10 +344,17 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
               </div>
             )}
 
-          <AppButton type="submit">
-            {operationMode === "encrypt" ? "Inject Payload" : "Decode Image"}
-          </AppButton>
-          {decodedPayload && operationMode === "decrypt" && (
+          <div className="">
+            <AppButton className="w-full" type="submit">
+              {operationMode === "store" ? "Store Payload" : "Retrieve Payload"}
+            </AppButton>
+            {operationMode === "store" && (
+              <p className="mt-2  text-gray-200 font-semibold text-sm text-center">
+                This will download a .png image containing the encrypted payload
+              </p>
+            )}
+          </div>
+          {decodedPayload && operationMode === "retrieve" && (
             <div>
               <label
                 className="text-xl block mb-1 p-text-shadow"
