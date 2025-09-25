@@ -6,11 +6,12 @@ import Tooltip from "./components/Tooltip";
 import {
   decodeDataFromImage,
   encodePayloadInAlpha,
-  ENTIRE_HEADER_BIT_LENGTH,
+  TOTAL_HEADER_BIT_LENGTH,
 } from "./utils/encodingUtils";
 import {
   decryptWithSubtleCrypto,
   generateEncryptedImageData,
+  textEncoder,
 } from "./utils/cryptoUtils";
 import { downloadImageUPNG, extractImageDataUPNG } from "./utils/fileUtils";
 
@@ -23,13 +24,11 @@ type WorkZoneProps = {
   uploadedImage: File;
 };
 
-const textEncoder = new TextEncoder();
-
 function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
   const [file, setFile] = useState<File>(uploadedFile);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [payloadType, setPayloadType] = useState<string>("");
+  const [payloadType, setPayloadType] = useState<string>();
   const imageRef = useRef<HTMLImageElement>(null);
   const [imgSrc, setImgSrc] = useState<string | undefined>();
   const [pixelData, setPixelData] = useState<Uint8ClampedArray>();
@@ -44,11 +43,6 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     width: number;
     height: number;
   }>({ width: 0, height: 0 });
-  const sizeKB = file.size / 1024;
-  const sizeStr =
-    sizeKB > 1024
-      ? (sizeKB / 1024).toFixed(2) + " MB"
-      : sizeKB.toFixed(2) + " KB";
 
   useEffect(() => {
     const reader = new FileReader();
@@ -67,19 +61,25 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
       setPixelData(new Uint8ClampedArray(resp));
     }
     updateImgSrc();
-    extractData();
+    // extractData();
     setDecodedPayload("");
     setOperationMode("");
     setPayLoad("");
   }, [file]);
 
   useEffect(() => {
-    setCapacityRemaining(
-      file.size -
-        ENTIRE_HEADER_BIT_LENGTH / 8 -
-        textEncoder.encode(payload).length
-    );
-  }, [payload, file]);
+    if (pixelData) {
+      setCapacityRemaining(
+        Math.floor(
+          pixelData?.byteLength / 4 -
+            TOTAL_HEADER_BIT_LENGTH -
+            textEncoder.encode(payload).length * 8
+        ) /
+          8 -
+          16
+      );
+    }
+  }, [payload, pixelData]);
 
   // Sets state for dimensions after the img has finished loading
   function handleImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -111,6 +111,19 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     if (imageData) setPixelData(imageData.data);
   }
 
+  const bytesToReadableSizeStr = (numBytes: number) => {
+    if (numBytes < 1024) {
+      return numBytes + " B";
+    }
+
+    const sizeKB = numBytes / 1024;
+    if (sizeKB > 1024) {
+      return (sizeKB / 1024).toFixed(2) + " MB";
+    } else {
+      return sizeKB.toFixed(2) + " KB";
+    }
+  };
+
   const handleClick = () => {
     fileInputRef.current?.click();
   };
@@ -133,8 +146,17 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (file && file.type.startsWith("image/")) {
-      setFileToInjectAsPayload(file);
+    if (file && capacityRemaining) {
+      if (file.size > capacityRemaining) {
+        alert(
+          `File is too large to store.\nImage capacity: ${bytesToReadableSizeStr(
+            capacityRemaining
+          )}`
+        );
+        event.currentTarget.value = "";
+      } else {
+        setFileToInjectAsPayload(file);
+      }
     } else {
       alert("Please upload an image file.");
     }
@@ -145,10 +167,12 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
   };
 
   async function injectPayload() {
-    if (pixelData) {
+    if (pixelData && payloadType) {
       const encryptedPayload = await generateEncryptedImageData(
         password,
-        payload
+        payload,
+        payloadType,
+        fileToInjectAsPayload?.name.split(".")[1]
       );
 
       const injectedPixelData = encodePayloadInAlpha(
@@ -171,9 +195,8 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     console.log(Object.fromEntries(formData.entries()));
 
     if (operationMode === "retrieve") {
-      const { bytes, iv, salt } = await decodeDataFromImage(
-        new Uint8ClampedArray(pixelData!)
-      );
+      const { bytes, iv, salt, payloadType, payloadFileExt } =
+        await decodeDataFromImage(new Uint8ClampedArray(pixelData!));
 
       const decryptedPayload = await decryptWithSubtleCrypto(
         new Uint8ClampedArray(bytes).buffer,
@@ -182,8 +205,14 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
         salt
       );
 
-      setDecodedPayload(decryptedPayload);
       console.log("Decrypted payload from image:", decryptedPayload);
+
+      if (payloadType === "message") {
+        setDecodedPayload(decryptedPayload);
+      } else if (payloadType === "file") {
+        console.log("file type detected with extension:", payloadFileExt);
+        console.log("TODO.. Generate file and allow user to download.");
+      }
     } else {
       injectPayload();
     }
@@ -212,7 +241,9 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
             </div>
             <div>
               <p className="text-sm">File Size</p>
-              <p className="text-lg  leading-5">{sizeStr}</p>
+              <p className="text-lg  leading-5">
+                {bytesToReadableSizeStr(file.size)}
+              </p>
             </div>
             <div>
               <p className="text-sm">Dimensions</p>
@@ -323,9 +354,12 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
                   required
                   minLength={1}
                 ></textarea>
-                <p className="text-right">
-                  Remaining Capacity: {capacityRemaining} B
-                </p>
+                {capacityRemaining !== undefined && (
+                  <p className="text-right">
+                    Remaining Capacity:{" "}
+                    {bytesToReadableSizeStr(capacityRemaining)}
+                  </p>
+                )}
               </div>
             )}
           {operationMode === "store" &&
@@ -335,12 +369,25 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
                   className="text-xl block mb-1 p-text-shadow"
                   htmlFor="imageToDecrypt"
                 >
-                  Upload File
+                  Upload File{" "}
+                  <span className="text-xs md:text-sm">
+                    (capacity: {bytesToReadableSizeStr(capacityRemaining!)})
+                  </span>
                 </label>
                 <input
                   type="file"
                   onChange={handleFileToInjectAsPayloadChange}
+                  required
                 />
+                {fileToInjectAsPayload && (
+                  <div>
+                    <p>File name: {fileToInjectAsPayload.name}</p>
+                    <p>
+                      File size:{" "}
+                      {bytesToReadableSizeStr(fileToInjectAsPayload.size)}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

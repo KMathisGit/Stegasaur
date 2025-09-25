@@ -6,11 +6,17 @@ import {
 import { getLargeRandomValues } from "./cryptoUtils";
 import { logger } from "./logger";
 
-const LEN_HEADER_BIT_LENGTH = 4 * 8;
-const IV_HEADER_BITS = 16 * 8;
-const SALT_HEADER_BIT_LENGTH = 16 * 8;
-export const ENTIRE_HEADER_BIT_LENGTH =
-  LEN_HEADER_BIT_LENGTH + IV_HEADER_BITS + SALT_HEADER_BIT_LENGTH;
+export const HEADER_BIT_STRUCUTRE = {
+  PAYLOAD_LEN_BIT_RANGE: [0, 32],
+  IV_BIT_RANGE: [32, 160],
+  SALT_BIT_RANGE: [160, 288],
+  PAYLOAD_TYPE_BIT_RANGE: [288, 296],
+  PAYLOAD_FILE_EXT_BIT_RANGE: [296, 360],
+};
+
+export const TOTAL_HEADER_BIT_LENGTH = Object.values(
+  HEADER_BIT_STRUCUTRE
+).reduce((acc, cur) => acc + cur[1] - cur[0], 0);
 
 export function encodePayloadInAlpha(
   pixelBytes: Uint8ClampedArray<ArrayBuffer>,
@@ -35,7 +41,7 @@ export function encodePayloadInAlpha(
     );
     const fillerBits = uint8ArrayToBits(fillerBytes);
 
-    // randomly change value of 0 or 1 LSB of all remaining alpha bytes
+    // randomly change LSB value to 0 or 1 of all remaining alpha bytes
     for (let i = bits.length; i < fillerBits.length; i++) {
       const alphaIndex = i * 4 + 3;
       if (alphaIndex >= pixelBytes.length) break;
@@ -64,25 +70,49 @@ export async function decodeDataFromImage(
       imageAlphaBits.push(pixels[alphaIndex] & 1);
     }
     // console.log("Bits from alpha", imageAlphaBits);
-    const headerBits = imageAlphaBits.slice(0, ENTIRE_HEADER_BIT_LENGTH);
-    const lengthHeaderBits = headerBits.slice(0, 32);
-    const ivHeaderBits = headerBits.slice(32, 160);
-    const saltHeaderBits = headerBits.slice(160, 288);
-    const payloadLength = convertBitsToDecimal(lengthHeaderBits);
-    const iv = convertBitsToByteArr(ivHeaderBits);
-    const salt = convertBitsToByteArr(saltHeaderBits);
+    const headerBits = imageAlphaBits.slice(0, TOTAL_HEADER_BIT_LENGTH);
+    const payloadLenBits = headerBits.slice(
+      HEADER_BIT_STRUCUTRE.PAYLOAD_LEN_BIT_RANGE[0],
+      HEADER_BIT_STRUCUTRE.PAYLOAD_LEN_BIT_RANGE[1]
+    );
+    const ivBits = headerBits.slice(
+      HEADER_BIT_STRUCUTRE.IV_BIT_RANGE[0],
+      HEADER_BIT_STRUCUTRE.IV_BIT_RANGE[1]
+    );
+    const saltBits = headerBits.slice(
+      HEADER_BIT_STRUCUTRE.SALT_BIT_RANGE[0],
+      HEADER_BIT_STRUCUTRE.SALT_BIT_RANGE[1]
+    );
+    const payloadTypeBits = headerBits.slice(
+      HEADER_BIT_STRUCUTRE.PAYLOAD_TYPE_BIT_RANGE[0],
+      HEADER_BIT_STRUCUTRE.PAYLOAD_TYPE_BIT_RANGE[1]
+    );
+    const payloadFileExtBits = headerBits.slice(
+      HEADER_BIT_STRUCUTRE.PAYLOAD_FILE_EXT_BIT_RANGE[0],
+      HEADER_BIT_STRUCUTRE.PAYLOAD_FILE_EXT_BIT_RANGE[1]
+    );
+    const payloadLength = convertBitsToDecimal(payloadLenBits);
+    const iv = convertBitsToByteArr(ivBits);
+    const salt = convertBitsToByteArr(saltBits);
+    const payloadType =
+      convertBitsToDecimal(payloadTypeBits) === 1 ? "file" : "message";
+    const payloadFileExt = String.fromCharCode(
+      ...convertBitsToByteArr(payloadFileExtBits).filter((e) => e !== 0)
+    );
 
     logger(() => {
-      console.log("Extracted length header from bits:", payloadLength);
-      console.log("IV extracted from header:", iv);
-      console.log("salt extracted from header:", salt);
+      console.log("Payload length:", payloadLength);
+      console.log("IV:", iv);
+      console.log("Salt:", salt);
+      console.log("Payload type:", payloadType);
+      console.log("Payload file ext:", payloadFileExt);
     }, "debug");
 
-    // Group bits into bytes (skipping length header which is first 36 bytes or 288 bits)
+    // Group bits into bytes (skipping header)
     const bytes: number[] = [];
     for (
-      let i = ENTIRE_HEADER_BIT_LENGTH;
-      i < ENTIRE_HEADER_BIT_LENGTH + payloadLength * 8;
+      let i = TOTAL_HEADER_BIT_LENGTH;
+      i < TOTAL_HEADER_BIT_LENGTH + payloadLength * 8;
       i += 8
     ) {
       const byteBits = imageAlphaBits.slice(i, i + 8);
@@ -92,13 +122,15 @@ export async function decodeDataFromImage(
     }
 
     logger(() => {
-      console.log("Grouped bits into bytes for decoding:", bytes);
+      console.log("Payload bits grouped into bytes for decrypting:", bytes);
     }, "debug");
 
     return {
       bytes,
       iv,
       salt,
+      payloadType,
+      payloadFileExt,
     };
   } catch (err) {
     logger(() => {

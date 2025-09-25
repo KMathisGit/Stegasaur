@@ -1,9 +1,11 @@
 import { generateRandomBytes } from "./bitByteUtils";
+import { HEADER_BIT_STRUCUTRE } from "./encodingUtils";
 import { logger } from "./logger";
 
 const KEY_DERIVATION_ITERATIONS = 100000;
 
-const textEncoder = new TextEncoder();
+export const textEncoder = new TextEncoder();
+export const textDecoder = new TextDecoder();
 
 /** Secret string provided by the user in order to generate CryptoKey for encrypting or decrypting payload */
 type Password = string;
@@ -61,7 +63,7 @@ export async function decryptWithSubtleCrypto(
 ) {
   try {
     logger(() => {
-      console.log("Decrypting:", encryptedArr, password, iv);
+      console.log("Decrypting:", encryptedArr, password, iv, salt);
     }, "debug");
 
     const key = await generateKey(password, salt);
@@ -121,10 +123,12 @@ async function generateKey(
   }
 }
 
-/** This function generates encrypted data to be encoded into an image */
+/** This function return data to be encoded into an iamge. The data consists of meta data header as well as encrypted payload */
 export async function generateEncryptedImageData(
   password: Password,
-  payload: Payload
+  payload: Payload,
+  payloadType: string,
+  payloadFileExt?: string
 ) {
   try {
     const initVector = generateRandomBytes(16);
@@ -136,27 +140,29 @@ export async function generateEncryptedImageData(
       initVector
     );
 
-    const encryptedPayloadHeader = generatePayloadHeader(
+    const payloadHeader = generatePayloadHeader(
       encryptedPayload.byteLength,
       initVector,
-      keySalt
+      keySalt,
+      payloadType,
+      payloadFileExt
     );
 
     logger(() => {
-      console.log("encrypted payload header V2:", encryptedPayloadHeader);
+      console.log("Payload header:", payloadHeader);
     }, "debug");
 
-    const encryptedData = new Uint8ClampedArray(
-      Array.from(encryptedPayloadHeader).concat(
+    const dataToEncode = new Uint8ClampedArray(
+      Array.from(payloadHeader).concat(
         Array.from(new Uint8ClampedArray(encryptedPayload))
       )
     );
 
     logger(() => {
-      console.log("encrypted payload with headers V2:", encryptedData);
+      console.log("data to encode:", dataToEncode);
     }, "debug");
 
-    return encryptedData;
+    return dataToEncode;
   } catch (err) {
     console.error("Error injecting payload:", err);
     throw "err";
@@ -189,13 +195,41 @@ export function getLargeRandomValues(totalBytes: number) {
 function generatePayloadHeader(
   encryptedPayLoadByteLength: number,
   iv: Uint8ClampedArray<ArrayBuffer>,
-  keySalt: Uint8ClampedArray<ArrayBuffer>
+  keySalt: Uint8ClampedArray<ArrayBuffer>,
+  payloadType: string,
+  payloadFileExt?: string
 ) {
   // generate length header based on encrypted payload size
   const lengthHeaderBytes = generateLengthHeader(encryptedPayLoadByteLength);
 
+  const payloadTypeByte = [payloadType === "file" ? 1 : 0];
+
+  const payloadFileExtBitLength =
+    HEADER_BIT_STRUCUTRE.PAYLOAD_FILE_EXT_BIT_RANGE[1] -
+    HEADER_BIT_STRUCUTRE.PAYLOAD_FILE_EXT_BIT_RANGE[0];
+
+  const payloadFileExtBytes = new Uint8ClampedArray(
+    payloadFileExtBitLength / 8
+  );
+  payloadFileExtBytes.fill(0);
+  if (payloadFileExt) {
+    // Write the extension char codes into the header
+    for (
+      let i = 0;
+      i < payloadFileExt.length && i < payloadFileExtBytes.length;
+      i++
+    ) {
+      payloadFileExtBytes[i] = payloadFileExt.charCodeAt(i);
+    }
+  }
+
   return new Uint8ClampedArray(
-    lengthHeaderBytes.concat(Array.from(iv), Array.from(keySalt))
+    lengthHeaderBytes.concat(
+      Array.from(iv),
+      Array.from(keySalt),
+      payloadTypeByte,
+      Array.from(payloadFileExtBytes)
+    )
   );
 }
 
