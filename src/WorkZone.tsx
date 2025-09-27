@@ -13,7 +13,7 @@ import {
   generateEncryptedImageData,
   textEncoder,
 } from "./utils/cryptoUtils";
-import { downloadImageUPNG, extractImageDataUPNG } from "./utils/fileUtils";
+import { downloadCanvasImage } from "./utils/fileUtils";
 
 const PAYLOAD_TYPES = {
   message: { label: "Message", value: "Message" },
@@ -56,12 +56,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
       reader.readAsDataURL(file);
     }
 
-    async function extractData() {
-      const resp = await extractImageDataUPNG(file);
-      setPixelData(new Uint8ClampedArray(resp));
-    }
     updateImgSrc();
-    // extractData();
     setDecodedPayload("");
     setOperationMode("");
     setPayLoad("");
@@ -180,12 +175,22 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
         encryptedPayload
       );
 
-      downloadImageUPNG(
-        injectedPixelData.buffer,
-        imgDimensions.width,
-        imgDimensions.height,
-        `${file.name.split(".")[0]}-modified.png`
-      );
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext("2d");
+        if (ctx) {
+          const canvasImageData = ctx.createImageData(
+            imgDimensions.width,
+            imgDimensions.height
+          );
+
+          canvasImageData.data.set(injectedPixelData);
+          ctx?.putImageData(canvasImageData, 0, 0);
+          downloadCanvasImage(
+            canvasRef.current,
+            `${file.name.split(".")[0]}-modified.png`
+          );
+        }
+      }
     }
   }
 
