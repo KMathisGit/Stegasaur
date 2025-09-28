@@ -77,6 +77,10 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     }
   }, [payload, pixelData]);
 
+  useEffect(() => {
+    setPayLoad("");
+  }, [payloadType]);
+
   // Sets state for dimensions after the img has finished loading
   function handleImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const img = e.target as HTMLImageElement;
