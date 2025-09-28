@@ -13,11 +13,11 @@ import {
   generateEncryptedImageData,
   textEncoder,
 } from "./utils/cryptoUtils";
-import { downloadCanvasImage } from "./utils/fileUtils";
+import { downloadArrayBuffer, downloadCanvasImage } from "./utils/fileUtils";
 
 const PAYLOAD_TYPES = {
-  message: { label: "Message", value: "Message" },
-  file: { label: "File", value: "File" },
+  message: { label: "Message", value: "message" },
+  file: { label: "File", value: "file" },
 };
 
 type WorkZoneProps = {
@@ -36,7 +36,9 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
   const [payload, setPayLoad] = useState<string>("");
   const [capacityRemaining, setCapacityRemaining] = useState<number>();
   const [operationMode, setOperationMode] = useState<string>();
-  const [fileToInjectAsPayload, setFileToInjectAsPayload] = useState<File>();
+  const [fileToInject, setFileToInject] = useState<File>();
+  const [fileToInjectData, setFileToInjectData] =
+    useState<Uint8ClampedArray<ArrayBuffer>>();
   const [decodedPayload, setDecodedPayload] = useState<string>();
 
   const [imgDimensions, setImgDimensions] = useState<{
@@ -46,7 +48,6 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
 
   useEffect(() => {
     const reader = new FileReader();
-
     function updateImgSrc() {
       reader.onload = function (e) {
         if (e.target?.result) {
@@ -90,17 +91,6 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     canvas.height = img.naturalHeight;
     ctx?.drawImage(img, 0, 0);
 
-    // Canvas -> Blob -> UPNG.decode -> UPNG.toRGBA8
-    // Not as performant as canvas.getImageData - but maybe useful for future
-    // canvas.toBlob(async (blob) => {
-    //   if (blob) {
-    //     const pixelData = await extractImageDataUPNG(blob);
-    //     console.timeEnd("toBlob");
-    //     console.log("pixel data from canvas toBlob + UPNG:", pixelData);
-    //     setPixelData(new Uint8ClampedArray(pixelData));
-    //   }
-    // });
-
     // Extract image pixel data
     const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
     if (imageData) setPixelData(imageData.data);
@@ -140,6 +130,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
   const handleFileToInjectAsPayloadChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
+    const reader = new FileReader();
     const file = event.target.files?.[0];
     if (file && capacityRemaining) {
       if (file.size > capacityRemaining) {
@@ -150,7 +141,18 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
         );
         event.currentTarget.value = "";
       } else {
-        setFileToInjectAsPayload(file);
+        setFileToInject(file); // TODO: may not need this state at all
+        reader.onload = () => {
+          const arrayBuffer = reader.result as ArrayBuffer;
+          const uint8Array = new Uint8ClampedArray(arrayBuffer);
+
+          // uint8Array now contains raw file data bytes
+          console.log(uint8Array);
+
+          setFileToInjectData(uint8Array);
+        };
+
+        reader.readAsArrayBuffer(file);
       }
     } else {
       alert("Please upload an image file.");
@@ -161,13 +163,13 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     setPayLoad(e.target.value);
   };
 
-  async function injectPayload() {
+  async function injectPayload(payload: Uint8ClampedArray) {
     if (pixelData && payloadType) {
       const encryptedPayload = await generateEncryptedImageData(
         password,
         payload,
         payloadType,
-        fileToInjectAsPayload?.name.split(".")[1]
+        fileToInject?.name.split(".")[1]
       );
 
       const injectedPixelData = encodePayloadInAlpha(
@@ -196,30 +198,47 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
 
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault(); // prevent page reload
-    const formData = new FormData(event.currentTarget);
-    console.log(Object.fromEntries(formData.entries()));
+    try {
+      if (operationMode === "retrieve") {
+        const { bytes, iv, salt, payloadType, payloadFileExt } =
+          await decodeDataFromImage(new Uint8ClampedArray(pixelData!));
 
-    if (operationMode === "retrieve") {
-      const { bytes, iv, salt, payloadType, payloadFileExt } =
-        await decodeDataFromImage(new Uint8ClampedArray(pixelData!));
+        const decryptedPayload = await decryptWithSubtleCrypto(
+          new Uint8ClampedArray(bytes).buffer,
+          password,
+          iv,
+          salt,
+          payloadType
+        );
 
-      const decryptedPayload = await decryptWithSubtleCrypto(
-        new Uint8ClampedArray(bytes).buffer,
-        password,
-        iv,
-        salt
-      );
-
-      console.log("Decrypted payload from image:", decryptedPayload);
-
-      if (payloadType === "message") {
-        setDecodedPayload(decryptedPayload);
-      } else if (payloadType === "file") {
-        console.log("file type detected with extension:", payloadFileExt);
-        console.log("TODO.. Generate file and allow user to download.");
+        if (payloadType === "message" && typeof decryptedPayload === "string") {
+          setDecodedPayload(decryptedPayload);
+        } else if (
+          payloadType === "file" &&
+          typeof decryptedPayload === "object"
+        ) {
+          downloadArrayBuffer(decryptedPayload, payloadFileExt);
+          console.log("file type detected with extension:", payloadFileExt);
+          console.log("TODO.. Generate file and allow user to download.");
+        }
+      } else {
+        if (payloadType === "message" && pixelData) {
+          injectPayload(pixelData);
+        } else {
+          if (fileToInjectData) {
+            injectPayload(fileToInjectData);
+          }
+        }
       }
-    } else {
-      injectPayload();
+    } catch (err) {
+      console.error(err);
+      if (operationMode === "retrieve") {
+        alert(
+          "Error retrieving payload from image. Are you sure this image contains a payload from Stegasaur?"
+        );
+      } else {
+        alert("Error storing payload in image, please try again.");
+      }
     }
   };
 
@@ -380,16 +399,16 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
                   </span>
                 </label>
                 <input
+                  className="w-full"
                   type="file"
                   onChange={handleFileToInjectAsPayloadChange}
                   required
                 />
-                {fileToInjectAsPayload && (
+                {fileToInject && (
                   <div>
-                    <p>File name: {fileToInjectAsPayload.name}</p>
+                    <p>File name: {fileToInject.name}</p>
                     <p>
-                      File size:{" "}
-                      {bytesToReadableSizeStr(fileToInjectAsPayload.size)}
+                      File size: {bytesToReadableSizeStr(fileToInject.size)}
                     </p>
                   </div>
                 )}
@@ -403,6 +422,12 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
             {operationMode === "store" && (
               <p className="mt-2  text-gray-200 font-semibold text-sm text-center">
                 This will download a .png image containing the encrypted payload
+              </p>
+            )}
+            {operationMode === "retrieve" && (
+              <p className="mt-2  text-gray-200 font-semibold text-sm text-center">
+                If a file was stored in image, it will trigger a download, else
+                it will display decrypted message below
               </p>
             )}
           </div>

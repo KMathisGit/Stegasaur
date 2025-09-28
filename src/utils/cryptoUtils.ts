@@ -11,7 +11,7 @@ export const textDecoder = new TextDecoder();
 type Password = string;
 
 /** UTF-8 string that is used as the data source to encrypt/decrypt */
-type Payload = string;
+type Payload = string | Uint8ClampedArray;
 
 /**
  * Uses Browser SubtleCrypto API in order to encrypt provided UTF-8 payload
@@ -24,7 +24,9 @@ async function encryptWithSubtleCrypto(
 ) {
   try {
     const byteCapacityRequired =
-      Math.floor(getUtf8ByteLength(payload) / 16) * 16 + 16;
+      typeof payload === "string"
+        ? Math.floor(getUtf8ByteLength(payload) / 16) * 16 + 16
+        : payload.byteLength;
 
     logger(() => {
       console.log("Initialization Vector:", initVector);
@@ -35,7 +37,9 @@ async function encryptWithSubtleCrypto(
     const encryptedPayload = await window.crypto.subtle.encrypt(
       { name: "AES-CBC", iv: initVector },
       key,
-      textEncoder.encode(payload)
+      typeof payload === "string"
+        ? textEncoder.encode(payload)
+        : new Uint8ClampedArray(payload)
     );
 
     logger(() => {
@@ -59,7 +63,8 @@ export async function decryptWithSubtleCrypto(
   encryptedArr: ArrayBuffer,
   password: string,
   iv: Uint8ClampedArray<ArrayBuffer>,
-  salt: Uint8ClampedArray<ArrayBuffer>
+  salt: Uint8ClampedArray<ArrayBuffer>,
+  payloadType: string
 ) {
   try {
     logger(() => {
@@ -72,8 +77,12 @@ export async function decryptWithSubtleCrypto(
       key,
       encryptedArr
     );
-    const originalText = new TextDecoder().decode(decrypted);
-    return originalText;
+    if (payloadType === "message") {
+      const originalText = new TextDecoder().decode(decrypted);
+      return originalText;
+    } else {
+      return decrypted;
+    }
   } catch (err) {
     logger(() => {
       console.error("Error decrypting:", err);

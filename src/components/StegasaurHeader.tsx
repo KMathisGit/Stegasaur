@@ -1,6 +1,9 @@
 function StegasaurHeader() {
   return (
-    <h1 className="font-pixilify h-24 mt-4 sm:mt-10 flex items-center justify-center uppercase font-semibold tracking-wide header-text-shadow">
+    <h1
+      onClick={() => location.reload()}
+      className="cursor-pointer font-pixilify h-24 mt-4 sm:mt-10 flex items-center justify-center uppercase font-semibold tracking-wide header-text-shadow"
+    >
       {"Stegasaur".split("").map((c, i) => (
         <span
           key={c + i}

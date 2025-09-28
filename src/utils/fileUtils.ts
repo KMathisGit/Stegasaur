@@ -24,27 +24,22 @@ export function downloadCanvasImage(
   );
 }
 
-// export function downloadImageUPNG(
-//   pixelArray: ArrayBuffer,
-//   width: number,
-//   height: number,
-//   fileName: string = "image.png"
-// ) {
-//   // pixelArray is Uint8ClampedArray RGBA data
+export function downloadArrayBuffer(arrayBuffer: ArrayBuffer, fileExt: string) {
+  // Create a Blob from the ArrayBuffer
+  const blob = new Blob([arrayBuffer], { type: "application/octet-stream" });
 
-//   // Encode raw pixel buffer to PNG binary using UPNG
-//   const pngData = UPNG.encode([pixelArray], width, height, 0); // 0 = no compression
+  // Create a temporary URL for the Blob
+  const url = URL.createObjectURL(blob);
 
-//   const blob = new Blob([pngData], { type: "image/png" });
+  // Create a temporary anchor element and trigger download
+  const a = document.createElement("a");
+  a.style.display = "none";
+  a.href = url;
+  a.download = `payload.${fileExt}`;
+  document.body.appendChild(a);
+  a.click();
 
-//   const url = URL.createObjectURL(blob);
-//   const a = document.createElement("a");
-//   a.href = url;
-//   a.download = fileName;
-//   a.click();
-//   URL.revokeObjectURL(url);
-// }
-
-// export async function extractImageDataUPNG(file: File | Blob) {
-//   return UPNG.toRGBA8(UPNG.decode(await file.arrayBuffer()))[0];
-// }
+  // Clean up the DOM and revoke the object URL
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
