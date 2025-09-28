@@ -1,5 +1,5 @@
 // Tooltip.js
-import React, { useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 
 type TooltipProps = {
   children: JSX.Element;
