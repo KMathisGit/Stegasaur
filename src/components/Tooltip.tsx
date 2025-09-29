@@ -11,7 +11,6 @@ function Tooltip({ children, text }: TooltipProps) {
 
   // Hide tooltip when tapping outside
   useEffect(() => {
-    console.log("hit");
     const handleClickOutside = (event: Event) => {
       if (
         toolTipRef.current &&
