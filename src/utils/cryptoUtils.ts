@@ -2,7 +2,7 @@ import { generateRandomBytes } from "./bitByteUtils";
 import { HEADER_BIT_STRUCUTRE } from "./encodingUtils";
 import { logger } from "./logger";
 
-const KEY_DERIVATION_ITERATIONS = 100000;
+const KEY_DERIVATION_ITERATIONS = 300000;
 
 export const textEncoder = new TextEncoder();
 export const textDecoder = new TextDecoder();
@@ -11,7 +11,7 @@ export const textDecoder = new TextDecoder();
 type Password = string;
 
 /** UTF-8 string that is used as the data source to encrypt/decrypt */
-type Payload = string | Uint8ClampedArray;
+export type Payload = string | Uint8ClampedArray;
 
 /**
  * Uses Browser SubtleCrypto API in order to encrypt provided UTF-8 payload

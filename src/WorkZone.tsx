@@ -12,6 +12,7 @@ import {
   decryptWithSubtleCrypto,
   generateEncryptedImageData,
   textEncoder,
+  type Payload,
 } from "./utils/cryptoUtils";
 import { downloadArrayBuffer, downloadCanvasImage } from "./utils/fileUtils";
 
@@ -26,16 +27,16 @@ type WorkZoneProps = {
 
 function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
   const [file, setFile] = useState<File>(uploadedFile);
+  const imageRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [payloadType, setPayloadType] = useState<string>();
-  const imageRef = useRef<HTMLImageElement>(null);
   const [imgSrc, setImgSrc] = useState<string | undefined>();
-  const [pixelData, setPixelData] = useState<Uint8ClampedArray>();
-  const [password, setPassword] = useState<string>("");
-  const [payload, setPayLoad] = useState<string>("");
   const [capacityRemaining, setCapacityRemaining] = useState<number>();
+  const [pixelData, setPixelData] = useState<Uint8ClampedArray>();
+  const [secretKey, setSecretKey] = useState<string>("");
   const [operationMode, setOperationMode] = useState<string>();
+  const [payloadType, setPayloadType] = useState<string>();
+  const [messageToInject, setMessageToInject] = useState<string>("");
   const [fileToInject, setFileToInject] = useState<File>();
   const [fileToInjectData, setFileToInjectData] =
     useState<Uint8ClampedArray<ArrayBuffer>>();
@@ -60,7 +61,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
     updateImgSrc();
     setDecodedPayload("");
     setOperationMode("");
-    setPayLoad("");
+    setMessageToInject("");
   }, [file]);
 
   useEffect(() => {
@@ -69,16 +70,16 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
         Math.floor(
           pixelData?.byteLength / 4 -
             TOTAL_HEADER_BIT_LENGTH -
-            textEncoder.encode(payload).length * 8
+            textEncoder.encode(messageToInject).length * 8
         ) /
           8 -
           16
       );
     }
-  }, [payload, pixelData]);
+  }, [messageToInject, pixelData]);
 
   useEffect(() => {
-    setPayLoad("");
+    setMessageToInject("");
   }, [payloadType]);
 
   // Sets state for dimensions after the img has finished loading
@@ -161,13 +162,13 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
   };
 
   const handlePayloadChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setPayLoad(e.target.value);
+    setMessageToInject(e.target.value);
   };
 
-  async function injectPayload(payload: Uint8ClampedArray) {
+  async function injectPayload(payload: Payload) {
     if (pixelData && payloadType) {
       const encryptedPayload = await generateEncryptedImageData(
-        password,
+        secretKey,
         payload,
         payloadType,
         fileToInject?.name.split(".")[1]
@@ -206,7 +207,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
 
         const decryptedPayload = await decryptWithSubtleCrypto(
           new Uint8ClampedArray(bytes).buffer,
-          password,
+          secretKey,
           iv,
           salt,
           payloadType
@@ -222,7 +223,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
         }
       } else {
         if (payloadType === "message" && pixelData) {
-          injectPayload(pixelData);
+          injectPayload(messageToInject);
         } else {
           if (fileToInjectData) {
             injectPayload(fileToInjectData);
@@ -306,8 +307,8 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
               id="encryptionKey"
               name="encryptionKey"
               className="w-full"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={secretKey}
+              onChange={(e) => setSecretKey(e.target.value)}
               required
               minLength={12}
               maxLength={48}
@@ -372,7 +373,7 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
                   name="payloadMessage"
                   rows={4}
                   className="w-full"
-                  value={payload}
+                  value={messageToInject}
                   onChange={handlePayloadChange}
                   required
                   minLength={1}
