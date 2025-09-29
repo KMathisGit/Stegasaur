@@ -43,10 +43,19 @@ h2 {
   @apply text-3xl md:text-4xl font-pixilify;
 }
 
+h3 {
+  @apply text-xl md:text-2xl font-pixilify;
+}
+
 select,
 textarea,
 input {
   @apply text-black outline-none border-1 bg-white rounded p-1;
+}
+
+a {
+  color: blue;
+  text-decoration: underline;
 }
 
 .header-text-shadow {
