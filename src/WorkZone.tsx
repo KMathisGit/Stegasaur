@@ -148,11 +148,8 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
         setFileToInject(file); // TODO: may not need this state at all
         reader.onload = () => {
           const arrayBuffer = reader.result as ArrayBuffer;
-          const uint8Array = new Uint8ClampedArray(arrayBuffer);
-
           // uint8Array now contains raw file data bytes
-          console.log(uint8Array);
-
+          const uint8Array = new Uint8ClampedArray(arrayBuffer);
           setFileToInjectData(uint8Array);
         };
 
@@ -222,8 +219,6 @@ function WorkZone({ uploadedImage: uploadedFile }: WorkZoneProps) {
           typeof decryptedPayload === "object"
         ) {
           downloadArrayBuffer(decryptedPayload, payloadFileExt);
-          console.log("file type detected with extension:", payloadFileExt);
-          console.log("TODO.. Generate file and allow user to download.");
         }
       } else {
         if (payloadType === "message" && pixelData) {
