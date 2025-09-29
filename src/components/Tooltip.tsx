@@ -1,18 +1,35 @@
 // Tooltip.js
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 
 type TooltipProps = {
   children: JSX.Element;
   text: string;
 };
 function Tooltip({ children, text }: TooltipProps) {
-  const [hover, setHover] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const toolTipRef = useRef<HTMLSpanElement>(null);
+
+  // Hide tooltip when tapping outside
+  useEffect(() => {
+    console.log("hit");
+    const handleClickOutside = (event: Event) => {
+      if (
+        toolTipRef.current &&
+        !toolTipRef.current.contains(event.target as Node)
+      ) {
+        setVisible(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <span
       style={{ position: "relative", display: "inline-block" }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+      ref={toolTipRef}
     >
       {children}
       <span
@@ -20,12 +37,12 @@ function Tooltip({ children, text }: TooltipProps) {
         tabIndex={0}
         aria-label="Info"
         role="tooltip-trigger"
-        onClick={() => setHover(!hover)}
+        onClick={() => setVisible(!visible)}
       >
         i
       </span>
-      {hover && (
-        <span className="absolute bg-black/80 rounded text-white text-sm p-2 whitespace-nowrap z-10 left-[50%] top-[-32px] -translate-x-1/2">
+      {visible && (
+        <span className="absolute bg-gray-950/90 rounded text-white text-sm p-2 px-4 max-w-xl w-[75vw] z-10 top-[-64px] -translate-x-1/4 pointerEvents: none">
           {text}
         </span>
       )}
